@@ -1,0 +1,32 @@
+# ---- Python ----
+.venv/
+__pycache__/
+*.pyc
+
+# ---- Node / frontend ----
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# ---- Large / rebuildable data ----
+# Images are NOT ours to redistribute (DRI / An Post / Colnect) — never commit.
+data/images/
+data/images_anpost/
+*.pdf
+
+# Rebuildable artifacts (regenerate from the pipeline)
+data/stamps.db
+data/raw/
+
+# ---- Scratch / scraped intermediates ----
+.playwright-mcp/
+*.jpeg
+*.png
+/colnect_list_*.json
+/colnect_details.json
+
+# ---- Docs (kept local) ----
+PROJECT_LOG.md
+
+# ---- OS ----
+.DS_Store
