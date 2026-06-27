@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import { flushSync } from 'react-dom'
 
 const API = 'http://localhost:8000'
 
@@ -20,6 +21,37 @@ export default function App() {
   const [active, setActive] = useState('all')
   const [selected, setSelected] = useState(null)   // stamp id for modal
   const [error, setError] = useState(null)
+  const stampRefs = useRef({})                      // grid .thumb by stamp id
+
+  // Open with a shared-element morph: the framed stamp flies into full screen.
+  const openStamp = (id) => {
+    const el = stampRefs.current[id]
+    if (!document.startViewTransition || !el) {
+      setSelected(id)
+      return
+    }
+    el.style.viewTransitionName = 'stamp'           // old snapshot = this thumb
+    document.startViewTransition(() => {
+      el.style.viewTransitionName = ''             // clear before render → no duplicate
+      flushSync(() => setSelected(id))              // new snapshot = full-screen img
+    })
+  }
+
+  // Close with the reverse morph: full-screen image flies back to its grid cell.
+  const closeStamp = () => {
+    const el = stampRefs.current[selected]
+    if (!document.startViewTransition) {
+      setSelected(null)
+      return
+    }
+    const t = document.startViewTransition(() => {
+      flushSync(() => setSelected(null))
+      if (el) el.style.viewTransitionName = 'stamp'
+    })
+    t.finished.finally(() => {
+      if (el) el.style.viewTransitionName = ''
+    })
+  }
 
   useEffect(() => {
     fetch(`${API}/gallery`)
@@ -76,15 +108,20 @@ export default function App() {
             {g.items.map((s) => (
               <button
                 key={s.id}
+                ref={(el) => { stampRefs.current[s.id] = el }}
                 className="thumb"
-                onClick={() => setSelected(s.id)}
+                onClick={() => openStamp(s.id)}
                 title={s.title}
               >
                 <img
                   loading="lazy"
-                  src={`${API}${s.image_api}`}
+                  src={`${API}/stamps/${s.id}/thumb`}
                   alt={s.title}
                 />
+                <span className="cap">
+                  {s.title}
+                  {s.year && <span className="yr"> · {s.year}</span>}
+                </span>
               </button>
             ))}
           </div>
@@ -92,7 +129,7 @@ export default function App() {
       ))}
 
       {selected && (
-        <DetailModal id={selected} onClose={() => setSelected(null)} />
+        <DetailModal id={selected} onClose={closeStamp} />
       )}
     </div>
   )
@@ -100,10 +137,15 @@ export default function App() {
 
 function DetailModal({ id, onClose }) {
   const [stamp, setStamp] = useState(null)
+  // start with the (already-cached) thumb for an instant morph, then sharpen
+  const [src, setSrc] = useState(`${API}/stamps/${id}/thumb`)
   const esc = useCallback((e) => e.key === 'Escape' && onClose(), [onClose])
 
   useEffect(() => {
     fetch(`${API}/stamps/${id}`).then((r) => r.json()).then(setStamp)
+    const hi = new Image()
+    hi.onload = () => setSrc(`${API}/stamps/${id}/thumb?size=1000&perf=1`)
+    hi.src = `${API}/stamps/${id}/thumb?size=1000&perf=1`
     document.addEventListener('keydown', esc)
     return () => document.removeEventListener('keydown', esc)
   }, [id, esc])
@@ -116,39 +158,42 @@ function DetailModal({ id, onClose }) {
   }
 
   return (
-    <div className="overlay" onClick={onClose}>
-      <div className="card" onClick={(e) => e.stopPropagation()}>
-        <button className="x" onClick={onClose}>×</button>
+    <div className="fs">
+      <div
+        className="fs-bg"
+        aria-hidden="true"
+        style={{ backgroundImage: `url(${src})` }}
+      />
+      <button className="fs-close" onClick={onClose} title="Back to gallery">×</button>
+      <div className="fs-img" style={{ viewTransitionName: 'stamp' }}>
+        <img src={src} alt={stamp?.title || ''} />
+      </div>
+      <div className="fs-info">
         {!stamp ? (
           <p className="loading">Loading…</p>
         ) : (
-          <div className="card-body">
-            <div className="card-img">
-              <img src={`${API}/stamps/${id}/image`} alt={stamp.title} />
-            </div>
-            <div className="card-info">
-              <h3>{stamp.title}</h3>
-              <Row k="Issue date" v={dateLabel(stamp)} />
-              <Row k="Face value" v={stamp.value_display} />
-              <Row k="Currency" v={stamp.currency} />
-              <Row k="Type" v={(stamp.issue_types || []).join(', ')} />
-              <Row k="Designer" v={stamp.designer} />
-              <Row k="Series" v={stamp.series} />
-              <Row k="Bucket" v={LABELS[stamp.bucket] || stamp.bucket} />
-              <Row k="Date source" v={stamp.date_source} />
-              {stamp.image_dimensions?.[0] && (
-                <Row k="Image" v={`${stamp.image_dimensions[0]}×${stamp.image_dimensions[1]}`} />
-              )}
-              <Row k="Rights" v={stamp.rights} small />
-              {stamp.source_url && (
-                <p className="src">
-                  <a href={stamp.source_url} target="_blank" rel="noreferrer">
-                    Source record ↗
-                  </a>
-                </p>
-              )}
-            </div>
-          </div>
+          <>
+            <h3>{stamp.title}</h3>
+            <Row k="Issue date" v={dateLabel(stamp)} />
+            <Row k="Face value" v={stamp.value_display} />
+            <Row k="Currency" v={stamp.currency} />
+            <Row k="Type" v={(stamp.issue_types || []).join(', ')} />
+            <Row k="Designer" v={stamp.designer} />
+            <Row k="Series" v={stamp.series} />
+            <Row k="Bucket" v={LABELS[stamp.bucket] || stamp.bucket} />
+            <Row k="Date source" v={stamp.date_source} />
+            {stamp.image_dimensions?.[0] && (
+              <Row k="Image" v={`${stamp.image_dimensions[0]}×${stamp.image_dimensions[1]}`} />
+            )}
+            <Row k="Rights" v={stamp.rights} small />
+            {stamp.source_url && (
+              <p className="src">
+                <a href={stamp.source_url} target="_blank" rel="noreferrer">
+                  Source record ↗
+                </a>
+              </p>
+            )}
+          </>
         )}
       </div>
     </div>

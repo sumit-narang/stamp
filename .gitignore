@@ -17,6 +17,8 @@ data/images_anpost/
 # Rebuildable artifacts (regenerate from the pipeline)
 data/stamps.db
 data/raw/
+# generated thumbnail / perforated-PNG cache
+data/thumbs/
 
 # ---- Scratch / scraped intermediates ----
 .playwright-mcp/

@@ -5,6 +5,7 @@ Run:  .venv/bin/uvicorn api.main:app --reload --port 8000
 Docs: http://localhost:8000/docs   (auto-generated OpenAPI)
 """
 import json
+import re
 import sqlite3
 from pathlib import Path
 
@@ -12,10 +13,13 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from PIL import Image, ImageChops, ImageDraw
 
 ROOT = Path(__file__).resolve().parent.parent
 DB = ROOT / "data" / "stamps.db"
 IMG_ROOT = ROOT / "data" / "images"
+THUMB_DIR = ROOT / "data" / "thumbs"
+THUMB_DIR.mkdir(parents=True, exist_ok=True)
 
 # Browse buckets, newest first. An Post years 2020-2026 are lumped together;
 # 1922-2019 use the four DRI era buckets.
@@ -75,6 +79,7 @@ def gallery():
         items.append({
             "id": r["id"],
             "title": r["title"],
+            "year": r["year"],
             "bucket": bucket_of(r),
             "has_image": bool(r["image_path"]),
             "image_api": f"/stamps/{r['id']}/image",
@@ -177,6 +182,92 @@ def get_image(stamp_id: str):
     if not path.exists():
         raise HTTPException(404, "image file missing")
     return FileResponse(path, media_type="image/jpeg")
+
+
+def _trim_white(im, tol=22, extra=3):
+    """Crop near-uniform (scanner-white) margins, plus a few extra px to remove
+    the faint scanner shadow line along the right/bottom edges."""
+    im = im.convert("RGB")
+    bg = Image.new("RGB", im.size, im.getpixel((0, 0)))  # corner = background ref
+    diff = ImageChops.difference(im, bg)
+    diff = ImageChops.add(diff, diff, 2.0, -tol)          # threshold the difference
+    bbox = diff.getbbox()
+    if not bbox:
+        return im
+    l, t, r, b = bbox
+    l, t = l + extra, t + extra
+    r, b = r - extra, b - extra
+    if r - l < 8 or b - t < 8:                            # safety: don't over-crop
+        return im.crop(bbox)
+    return im.crop((l, t, r, b))
+
+
+def _perforate(im, border, hole_r, hole_gap):
+    """Add a white border and punch evenly-spaced perforation holes around the
+    edges, baked into the pixels (transparent PNG). Holes are computed to divide
+    each edge exactly, so they're symmetric and corner-aligned — no seams."""
+    im = im.convert("RGB")
+    w, h = im.size
+    bw, bh = w + 2 * border, h + 2 * border
+    canvas = Image.new("RGB", (bw, bh), (255, 255, 255))
+    canvas.paste(im, (border, border))
+    alpha = Image.new("L", (bw, bh), 255)
+    d = ImageDraw.Draw(alpha)
+
+    def centers(length):
+        n = max(2, round(length / hole_gap))
+        return [round(i * length / n) for i in range(n + 1)]
+
+    r = hole_r
+    for cx in centers(bw):
+        d.ellipse([cx - r, -r, cx + r, r], fill=0)            # top
+        d.ellipse([cx - r, bh - r, cx + r, bh + r], fill=0)   # bottom
+    for cy in centers(bh):
+        d.ellipse([-r, cy - r, r, cy + r], fill=0)            # left
+        d.ellipse([bw - r, cy - r, bw + r, cy + r], fill=0)   # right
+
+    out = canvas.convert("RGBA")
+    out.putalpha(alpha)
+    return out
+
+
+def _row_image(stamp_id):
+    with db() as con:
+        row = con.execute(
+            "SELECT image_path FROM stamps WHERE id = ?", [stamp_id]).fetchone()
+    if not row or not row["image_path"]:
+        raise HTTPException(404, "no image")
+    src = ROOT / row["image_path"]
+    if not src.exists():
+        raise HTTPException(404, "image file missing")
+    return src
+
+
+@app.get("/stamps/{stamp_id}/thumb", tags=["stamps"])
+def get_thumb(stamp_id: str, size: int = 420, perf: int = 0):
+    """Trimmed, downscaled stamp image (cached per size).
+
+    Default = plain JPEG (the grid applies its perforation in CSS). With perf=1
+    the perforation + white border are baked into a transparent PNG — used by the
+    large detail view, where CSS masking leaves a sub-pixel seam."""
+    size = max(64, min(size, 1600))
+    safe = re.sub(r"[^A-Za-z0-9_-]", "_", stamp_id)
+    if perf:
+        dest = THUMB_DIR / f"{safe}_{size}_perf.png"
+        if not dest.exists():
+            im = _trim_white(Image.open(_row_image(stamp_id)))
+            border = max(8, round(size * 0.017))
+            hole_r = max(3, round(size * 0.006))
+            hole_gap = max(8, round(size * 0.021))
+            im.thumbnail((size - 2 * border, size - 2 * border))
+            _perforate(im, border, hole_r, hole_gap).save(dest, "PNG")
+        return FileResponse(dest, media_type="image/png")
+    dest = THUMB_DIR / f"{safe}_{size}.jpg"
+    if not dest.exists():
+        im = _trim_white(Image.open(_row_image(stamp_id)))
+        im.thumbnail((size, size))
+        im.save(dest, "JPEG", quality=88)
+    return FileResponse(dest, media_type="image/jpeg")
 
 
 @app.get("/series", tags=["browse"])
