@@ -203,30 +203,41 @@ def _trim_white(im, tol=22, extra=3):
 
 
 def _perforate(im, border, hole_r, hole_gap):
-    """Add a white border and punch evenly-spaced perforation holes around the
-    edges, baked into the pixels (transparent PNG). Holes are computed to divide
-    each edge exactly, so they're symmetric and corner-aligned — no seams."""
-    im = im.convert("RGB")
+    """Bake a white stamp edge into the image: draw a white border *over* the
+    image's outer pixels (covering any scanned perforation, like the grid's CSS
+    border) and punch evenly-spaced transparent holes around the edge. Holes
+    divide each edge exactly, so they're symmetric and corner-aligned — no seam."""
+    im = im.convert("RGB").copy()
     w, h = im.size
-    bw, bh = w + 2 * border, h + 2 * border
-    canvas = Image.new("RGB", (bw, bh), (255, 255, 255))
-    canvas.paste(im, (border, border))
-    alpha = Image.new("L", (bw, bh), 255)
-    d = ImageDraw.Draw(alpha)
+    white = (255, 255, 255)
+    d = ImageDraw.Draw(im)
+    d.rectangle([0, 0, w, border], fill=white)          # top
+    d.rectangle([0, h - border, w, h], fill=white)      # bottom
+    d.rectangle([0, 0, border, h], fill=white)          # left
+    d.rectangle([w - border, 0, w, h], fill=white)      # right
+
+    # punch the holes into an alpha mask, supersampled 4x then downscaled so the
+    # scallop edges are smooth (antialiased) instead of blocky.
+    ss = 4
+    alpha = Image.new("L", (w * ss, h * ss), 255)
+    da = ImageDraw.Draw(alpha)
 
     def centers(length):
         n = max(2, round(length / hole_gap))
         return [round(i * length / n) for i in range(n + 1)]
 
-    r = hole_r
-    for cx in centers(bw):
-        d.ellipse([cx - r, -r, cx + r, r], fill=0)            # top
-        d.ellipse([cx - r, bh - r, cx + r, bh + r], fill=0)   # bottom
-    for cy in centers(bh):
-        d.ellipse([-r, cy - r, r, cy + r], fill=0)            # left
-        d.ellipse([bw - r, cy - r, bw + r, cy + r], fill=0)   # right
+    r = hole_r * ss
+    for cx in centers(w):
+        x = cx * ss
+        da.ellipse([x - r, -r, x + r, r], fill=0)                    # top
+        da.ellipse([x - r, h * ss - r, x + r, h * ss + r], fill=0)   # bottom
+    for cy in centers(h):
+        y = cy * ss
+        da.ellipse([-r, y - r, r, y + r], fill=0)                    # left
+        da.ellipse([w * ss - r, y - r, w * ss + r, y + r], fill=0)   # right
+    alpha = alpha.resize((w, h), Image.LANCZOS)
 
-    out = canvas.convert("RGBA")
+    out = im.convert("RGBA")
     out.putalpha(alpha)
     return out
 
@@ -256,10 +267,11 @@ def get_thumb(stamp_id: str, size: int = 420, perf: int = 0):
         dest = THUMB_DIR / f"{safe}_{size}_perf.png"
         if not dest.exists():
             im = _trim_white(Image.open(_row_image(stamp_id)))
-            border = max(8, round(size * 0.017))
-            hole_r = max(3, round(size * 0.006))
-            hole_gap = max(8, round(size * 0.021))
-            im.thumbnail((size - 2 * border, size - 2 * border))
+            im.thumbnail((size, size))
+            dim = max(im.size)               # actual size (source may be smaller)
+            border = max(8, round(dim * 0.017))
+            hole_r = max(3, round(dim * 0.006))
+            hole_gap = max(8, round(dim * 0.021))
             _perforate(im, border, hole_r, hole_gap).save(dest, "PNG")
         return FileResponse(dest, media_type="image/png")
     dest = THUMB_DIR / f"{safe}_{size}.jpg"

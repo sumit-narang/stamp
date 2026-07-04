@@ -144,8 +144,8 @@ function DetailModal({ id, onClose }) {
   useEffect(() => {
     fetch(`${API}/stamps/${id}`).then((r) => r.json()).then(setStamp)
     const hi = new Image()
-    hi.onload = () => setSrc(`${API}/stamps/${id}/thumb?size=1000&perf=1`)
-    hi.src = `${API}/stamps/${id}/thumb?size=1000&perf=1`
+    hi.onload = () => setSrc(`${API}/stamps/${id}/thumb?size=1600&perf=1`)
+    hi.src = `${API}/stamps/${id}/thumb?size=1600&perf=1`
     document.addEventListener('keydown', esc)
     return () => document.removeEventListener('keydown', esc)
   }, [id, esc])
