@@ -73,7 +73,8 @@ def gallery():
     """Compact list of every stamp for the image gallery (id, bucket, has_image)."""
     with db() as con:
         rows = con.execute(
-            "SELECT id, title, era, year, image_path FROM stamps").fetchall()
+            "SELECT id, title, era, year, image_path, image_w, image_h "
+            "FROM stamps").fetchall()
     items = []
     for r in rows:
         items.append({
@@ -82,6 +83,8 @@ def gallery():
             "year": r["year"],
             "bucket": bucket_of(r),
             "has_image": bool(r["image_path"]),
+            "w": r["image_w"],
+            "h": r["image_h"],
             "image_api": f"/stamps/{r['id']}/image",
         })
     order = {b: i for i, b in enumerate(BUCKETS)}

@@ -53,6 +53,25 @@ export default function App() {
     })
   }
 
+  const [hero, setHero] = useState([])      // 5 portrait stamps for the fan
+  const [dealt, setDealt] = useState(false)
+  const [stuck, setStuck] = useState(false) // toolbar pinned to top?
+  const [curBucket, setCurBucket] = useState(null) // section under the toolbar
+  const sentinelRef = useRef(null)
+  const sectionRefs = useRef({})
+
+  // toolbar shows the year range only once it sticks to the top
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el) return
+    const obs = new IntersectionObserver(
+      ([e]) => setStuck(!e.isIntersecting),
+      { threshold: 0 },
+    )
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
+
   useEffect(() => {
     fetch(`${API}/gallery`)
       .then((r) => r.json())
@@ -60,10 +79,22 @@ export default function App() {
         setBuckets(d.buckets)
         setCounts(d.counts)
         setTotal(d.total)
-        setStamps(d.stamps.filter((s) => s.has_image))
+        const imaged = d.stamps.filter((s) => s.has_image)
+        setStamps(imaged)
+        // 5 random portrait stamps for the hero fan
+        const portrait = imaged.filter((s) => s.h && s.w && s.h > s.w * 1.15)
+        const pool = portrait.length >= 5 ? portrait : imaged
+        setHero([...pool].sort(() => Math.random() - 0.5).slice(0, 5))
       })
       .catch(() => setError('Could not reach the API. Is it running on :8000?'))
   }, [])
+
+  // deal the fan out shortly after it mounts
+  useEffect(() => {
+    if (!hero.length) return
+    const t = setTimeout(() => setDealt(true), 250)
+    return () => clearTimeout(t)
+  }, [hero])
 
   const shown = active === 'all' ? stamps : stamps.filter((s) => s.bucket === active)
 
@@ -72,35 +103,76 @@ export default function App() {
     .map((b) => ({ bucket: b, items: shown.filter((s) => s.bucket === b) }))
     .filter((g) => g.items.length)
 
+  // scroll-spy: the range label reflects the section currently under the toolbar
+  useEffect(() => {
+    const onScroll = () => {
+      let cur = null
+      for (const g of groups) {
+        const el = sectionRefs.current[g.bucket]
+        if (el && el.getBoundingClientRect().top - 72 <= 0) cur = g.bucket
+      }
+      setCurBucket(cur || (groups[0] && groups[0].bucket) || null)
+    }
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [groups])
+
+  const rangeBucket = curBucket || (active !== 'all' ? active : buckets[0])
+  const rangeLabel = rangeBucket ? (LABELS[rangeBucket] || rangeBucket) : '1922–2026'
+  const rangeCount = rangeBucket ? counts[rangeBucket] : total
+
   return (
     <div className="app">
-      <header>
+      <header className="hero">
+        <div className={dealt ? 'fan dealt' : 'fan'}>
+          {hero.map((s, i) => (
+            <div
+              className="fan-card"
+              key={s.id}
+              style={{
+                '--i': i - 2,
+                transitionDelay: `${Math.abs(i - 2) * 0.07}s`,
+                zIndex: 5 - Math.abs(i - 2),
+              }}
+            >
+              <img src={`${API}/stamps/${s.id}/thumb?size=400&perf=1`} alt="" />
+            </div>
+          ))}
+        </div>
         <h1>Irish Stamp Gallery</h1>
         <p className="sub">{total.toLocaleString()} stamps · 1922–2026</p>
       </header>
 
-      <nav className="filters">
-        <button
-          className={active === 'all' ? 'chip on' : 'chip'}
-          onClick={() => setActive('all')}
-        >
-          All <span>{stamps.length}</span>
-        </button>
-        {buckets.map((b) => (
+      <div ref={sentinelRef} className="sticky-sentinel" />
+      <div className={stuck ? 'toolbar stuck' : 'toolbar'}>
+        <div className="range">{rangeLabel} <span>{rangeCount}</span></div>
+        <nav className="filters">
           <button
-            key={b}
-            className={active === b ? 'chip on' : 'chip'}
-            onClick={() => setActive(b)}
+            className={active === 'all' ? 'chip on' : 'chip'}
+            onClick={() => setActive('all')}
           >
-            {LABELS[b] || b} <span>{counts[b] || 0}</span>
+            All <span>{stamps.length}</span>
           </button>
-        ))}
-      </nav>
+          {buckets.map((b) => (
+            <button
+              key={b}
+              className={active === b ? 'chip on' : 'chip'}
+              onClick={() => setActive(b)}
+            >
+              {LABELS[b] || b} <span>{counts[b] || 0}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
 
       {error && <p className="error">{error}</p>}
 
       {groups.map((g) => (
-        <section key={g.bucket}>
+        <section
+          key={g.bucket}
+          ref={(el) => { sectionRefs.current[g.bucket] = el }}
+        >
           <h2>
             {LABELS[g.bucket] || g.bucket} <span>{g.items.length}</span>
           </h2>
