@@ -12,6 +12,7 @@ frontend/.vite/
 # Images are NOT ours to redistribute (DRI / An Post / Colnect) — never commit.
 data/images/
 data/images_anpost/
+data/images_colnect/
 *.pdf
 
 # Rebuildable artifacts (regenerate from the pipeline)

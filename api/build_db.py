@@ -45,7 +45,11 @@ CREATE TABLE stamps (
   image_h       INTEGER,
   n_images      INTEGER,
   rights        TEXT,
-  source_url    TEXT
+  source_url    TEXT,
+  -- appended (positional INSERT above fills the first 24; these stay NULL for
+  -- DRI records and are populated by load_colnect_manual.py for 2020-2026)
+  printer       TEXT,
+  extra         TEXT            -- JSON: catalogue refs, perforation, size, etc.
 );
 
 CREATE INDEX idx_year_start ON stamps(year_start);
