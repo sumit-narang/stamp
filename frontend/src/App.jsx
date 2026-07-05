@@ -6,11 +6,11 @@ const API = 'http://localhost:8000'
 // Friendly bucket labels. Written high→low so the chips read as one continuous
 // descending timeline (2026→2020, 2019→2011, …) matching the newest-first order.
 const LABELS = {
-  '2020-2026': '2026–2020',
-  '2011-2019': '2019–2011',
-  '2001-2010': '2010–2001',
-  '1984-2000': '2000–1984',
-  '1922-1983': '1983–1922',
+  '2020-2026': '2026 – 2020',
+  '2011-2019': '2019 – 2011',
+  '2001-2010': '2010 – 2001',
+  '1984-2000': '2000 – 1984',
+  '1922-1983': '1983 – 1922',
 }
 
 export default function App() {
