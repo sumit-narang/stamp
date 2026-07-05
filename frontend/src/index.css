@@ -26,14 +26,14 @@ body {
 .app { max-width: 1200px; margin: 0 auto; padding: 24px 16px 64px; }
 
 /* ---- hero: fanned stamps + heading ---- */
-.hero { text-align: center; padding: 20px 0 8px; }
+.hero { text-align: center; padding: 28px 0 80px; }
 .hero h1 { margin: 0; font-size: 2.1rem; letter-spacing: -0.5px; }
-.hero .sub { margin: 6px 0 0; color: var(--muted); font-size: 1.02rem; }
+.hero .sub { margin: 10px 0 0; color: var(--muted); font-size: 1.02rem; }
 
 .fan {
   position: relative;
   height: 210px;
-  margin-bottom: 38px;
+  margin-bottom: 64px;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -46,16 +46,45 @@ body {
   transform: rotate(0deg) translateX(0) translateY(14px);
   opacity: 0;
   transition: transform 0.7s cubic-bezier(0.22, 1, 0.3, 1.25), opacity 0.5s ease;
+  /* shadow on the unmasked wrapper follows the masked stamp's outline */
+  filter: drop-shadow(0 5px 12px rgba(0, 0, 0, 0.2));
 }
 .fan.dealt .fan-card {
   opacity: 1;
   transform: rotate(calc(var(--i) * 8deg)) translateX(calc(var(--i) * 62px));
 }
-.fan-card img {
+/* same perforation + white border as the grid (.thumb) */
+.fan-stamp {
+  display: block;
+  position: relative;
+  background: #fff;
+  --r: var(--perf-r);
+  --g: var(--perf-g);
+  --in: var(--perf-in);
+  -webkit-mask:
+    radial-gradient(var(--r) at 50% var(--in), #0000 96%, #000) 50% 0 / var(--g) 100% repeat-x,
+    radial-gradient(var(--r) at 50% calc(100% - var(--in)), #0000 96%, #000) 50% 100% / var(--g) 100% repeat-x,
+    radial-gradient(var(--r) at var(--in) 50%, #0000 96%, #000) 0 50% / 100% var(--g) repeat-y,
+    radial-gradient(var(--r) at calc(100% - var(--in)) 50%, #0000 96%, #000) 100% 50% / 100% var(--g) repeat-y;
+  -webkit-mask-composite: source-in;
+  mask:
+    radial-gradient(var(--r) at 50% var(--in), #0000 96%, #000) 50% 0 / var(--g) 100% repeat-x,
+    radial-gradient(var(--r) at 50% calc(100% - var(--in)), #0000 96%, #000) 50% 100% / var(--g) 100% repeat-x,
+    radial-gradient(var(--r) at var(--in) 50%, #0000 96%, #000) 0 50% / 100% var(--g) repeat-y,
+    radial-gradient(var(--r) at calc(100% - var(--in)) 50%, #0000 96%, #000) 100% 50% / 100% var(--g) repeat-y;
+  mask-composite: intersect;
+}
+.fan-stamp img {
   display: block;
   width: 100%;
   height: auto;
-  filter: drop-shadow(0 5px 12px rgba(0, 0, 0, 0.2));
+}
+.fan-stamp::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: calc(var(--perf-pad) + var(--inset)) solid #fff;
+  pointer-events: none;
 }
 
 /* ---- toolbar: filters (left) by default; when stuck, year range appears
