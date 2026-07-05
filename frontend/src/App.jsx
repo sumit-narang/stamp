@@ -13,6 +13,15 @@ const LABELS = {
   '1922-1983': '1983 – 1922',
 }
 
+// the 5 hand-picked stamps shown in the hero fan (left → right)
+const HERO_IDS = [
+  'cz313h371', // Irish Handcrafts (harp maker)
+  '3r07jj778', // F.I.F.A World Cup 1990
+  'dj538v485', // Irish Dance
+  'tx324745r', // Cliffs of Moher
+  '95947j956', // Sheep – Donegal Blackface
+]
+
 export default function App() {
   const [buckets, setBuckets] = useState([])
   const [counts, setCounts] = useState({})
@@ -81,10 +90,8 @@ export default function App() {
         setTotal(d.total)
         const imaged = d.stamps.filter((s) => s.has_image)
         setStamps(imaged)
-        // 5 random portrait stamps for the hero fan
-        const portrait = imaged.filter((s) => s.h && s.w && s.h > s.w * 1.15)
-        const pool = portrait.length >= 5 ? portrait : imaged
-        setHero([...pool].sort(() => Math.random() - 0.5).slice(0, 5))
+        // the fixed hand-picked hero fan
+        setHero(HERO_IDS.map((id) => imaged.find((s) => s.id === id)).filter(Boolean))
       })
       .catch(() => setError('Could not reach the API. Is it running on :8000?'))
   }, [])
