@@ -141,7 +141,7 @@ export default function App() {
           ))}
         </div>
         <h1>Irish Stamp Gallery</h1>
-        <p className="sub">{total.toLocaleString()} stamps · 1922–2026</p>
+        <p className="sub">Every Irish postage stamp since 1922</p>
       </header>
 
       <div ref={sentinelRef} className="sticky-sentinel" />
