@@ -65,9 +65,11 @@ export default function App() {
   const [hero, setHero] = useState([])      // 5 portrait stamps for the fan
   const [dealt, setDealt] = useState(false)
   const [stuck, setStuck] = useState(false) // toolbar pinned to top?
-  const [curBucket, setCurBucket] = useState(null) // section under the toolbar
+  const [curBucket, setCurBucket] = useState(null) // section handed off to the bar
   const sentinelRef = useRef(null)
   const sectionRefs = useRef({})
+  const headingRefs = useRef({})           // each section's <h2>
+  const toolbarRef = useRef(null)
 
   // toolbar shows the year range only once it sticks to the top
   useEffect(() => {
@@ -110,24 +112,27 @@ export default function App() {
     .map((b) => ({ bucket: b, items: shown.filter((s) => s.bucket === b) }))
     .filter((g) => g.items.length)
 
-  // scroll-spy: the range label reflects the section currently under the toolbar
+  // scroll-spy hand-off: the sticky bar shows a section's range only once that
+  // section's grid heading has scrolled up fully under the toolbar (so the grid
+  // heading and the bar label are never visible at the same time).
   useEffect(() => {
     const onScroll = () => {
+      const tb = toolbarRef.current
+      const line = tb ? tb.getBoundingClientRect().bottom : 64
       let cur = null
       for (const g of groups) {
-        const el = sectionRefs.current[g.bucket]
-        if (el && el.getBoundingClientRect().top - 72 <= 0) cur = g.bucket
+        const el = headingRefs.current[g.bucket]
+        if (el && el.getBoundingClientRect().bottom <= line + 1) cur = g.bucket
       }
-      setCurBucket(cur || (groups[0] && groups[0].bucket) || null)
+      setCurBucket(cur)
     }
     onScroll()
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [groups])
 
-  const rangeBucket = curBucket || (active !== 'all' ? active : buckets[0])
-  const rangeLabel = rangeBucket ? (LABELS[rangeBucket] || rangeBucket) : '1922–2026'
-  const rangeCount = rangeBucket ? counts[rangeBucket] : total
+  const rangeLabel = curBucket ? (LABELS[curBucket] || curBucket) : ''
+  const rangeCount = curBucket ? counts[curBucket] : ''
 
   return (
     <div className="app">
@@ -154,8 +159,12 @@ export default function App() {
       </header>
 
       <div ref={sentinelRef} className="sticky-sentinel" />
-      <div className={stuck ? 'toolbar stuck' : 'toolbar'}>
+      <div
+        ref={toolbarRef}
+        className={`toolbar${stuck ? ' stuck' : ''}${curBucket ? ' has-range' : ''}`}
+      >
         <div className="range">{rangeLabel} <span>{rangeCount}</span></div>
+        <div className="tb-spacer" />
         <nav className="filters">
           <button
             className={active === 'all' ? 'chip on' : 'chip'}
@@ -182,7 +191,7 @@ export default function App() {
           key={g.bucket}
           ref={(el) => { sectionRefs.current[g.bucket] = el }}
         >
-          <h2>
+          <h2 ref={(el) => { headingRefs.current[g.bucket] = el }}>
             {LABELS[g.bucket] || g.bucket} <span>{g.items.length}</span>
           </h2>
           <div className="grid">
