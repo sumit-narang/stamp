@@ -302,3 +302,33 @@ section h2 span { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
 .row.small .v { font-size: 0.8rem; color: var(--muted); }
 .src { margin-top: 14px; }
 .src a { color: #6db36d; }
+
+/* scroll-to-top: centered glass pill, revealed only while scrolling back up */
+.to-top {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%) translateY(16px);
+  z-index: 50;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(10, 10, 10, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.10), 0 1px 3px rgba(0, 0, 0, 0.08);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+.to-top.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}

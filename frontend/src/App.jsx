@@ -66,10 +66,24 @@ export default function App() {
   const [dealt, setDealt] = useState(false)
   const [stuck, setStuck] = useState(false) // toolbar pinned to top?
   const [curBucket, setCurBucket] = useState(null) // section handed off to the bar
+  const [showTop, setShowTop] = useState(false) // scroll-to-top button
   const sentinelRef = useRef(null)
   const sectionRefs = useRef({})
   const headingRefs = useRef({})           // each section's <h2>
   const toolbarRef = useRef(null)
+  const lastY = useRef(0)
+
+  // reveal the scroll-to-top button only while scrolling back up (and not near top)
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY
+      const scrollingUp = y < lastY.current
+      setShowTop(scrollingUp && y > window.innerHeight * 0.3)
+      lastY.current = y
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
 
   // toolbar shows the year range only once it sticks to the top
   useEffect(() => {
@@ -221,6 +235,13 @@ export default function App() {
       {selected && (
         <DetailModal id={selected} onClose={closeStamp} />
       )}
+
+      <button
+        className={showTop ? 'to-top show' : 'to-top'}
+        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+      >
+        Back to top
+      </button>
     </div>
   )
 }
