@@ -6,12 +6,42 @@
   --muted: #5f6368;
   --accent: #2e7d32; /* Irish green */
 
+  /* themeable surfaces */
+  --chip-bg: #ffffff;
+  --chip-text: #4b4f56;
+  --chip-hover: #f1f1f2;
+  --chip-on-bg: #141414;
+  --chip-on-text: #ffffff;
+  --scrim: rgba(231, 232, 234, 0.62);
+  --close-bg: #ffffff;
+  --close-text: #333333;
+  --stamp-paper: #ffffff;   /* the perforated stamp frame/cut */
+
   /* grid stamp perforation (applied in CSS at display size) */
   --inset: 6px;      /* white border framing the image */
   --perf-pad: 2.5px; /* white margin between image and perforation */
   --perf-r: 2.5px;   /* perforation hole radius */
   --perf-g: 8px;     /* perforation hole spacing */
   --perf-in: 0px;    /* perforation inset from the edge */
+}
+
+:root[data-theme='dark'] {
+  --bg: #121316;
+  --panel: #1c1e22;
+  --line: #2c2f34;
+  --text: #e8e9ec;
+  --muted: #9aa0a8;
+  --accent: #57b364;
+
+  --chip-bg: #1e2126;
+  --chip-text: #c8ccd2;
+  --chip-hover: #282c32;
+  --chip-on-bg: #f2f3f5;
+  --chip-on-text: #121316;
+  --scrim: rgba(10, 11, 13, 0.66);
+  --close-bg: #1e2126;
+  --close-text: #e8e9ec;
+  --stamp-paper: #f4f4f2;   /* white paper frame; dark bg shows through perf holes */
 }
 
 * { box-sizing: border-box; }
@@ -57,7 +87,7 @@ body {
 .fan-stamp {
   display: block;
   position: relative;
-  background: #fff;
+  background: var(--stamp-paper);
   --r: var(--perf-r);
   --g: var(--perf-g);
   --in: var(--perf-in);
@@ -83,7 +113,7 @@ body {
   content: '';
   position: absolute;
   inset: 0;
-  border: calc(var(--perf-pad) + var(--inset)) solid #fff;
+  border: calc(var(--perf-pad) + var(--inset)) solid var(--stamp-paper);
   pointer-events: none;
 }
 
@@ -131,8 +161,8 @@ body {
 .filters::-webkit-scrollbar { display: none; }
 
 .chip {
-  background: #fff;
-  color: #4b4f56;
+  background: var(--chip-bg);
+  color: var(--chip-text);
   border: none;
   border-radius: 12px;
   padding: 9px 16px;
@@ -143,8 +173,8 @@ body {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   transition: background 0.15s, color 0.15s;
 }
-.chip:hover { background: #f1f1f2; }
-.chip.on { background: #141414; color: #fff; box-shadow: none; }
+.chip:hover { background: var(--chip-hover); }
+.chip.on { background: var(--chip-on-bg); color: var(--chip-on-text); box-shadow: none; }
 .chip span { opacity: 0.55; font-size: 0.78rem; margin-left: 5px; }
 .chip.on span { opacity: 0.7; }
 
@@ -169,7 +199,7 @@ section h2 span { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
   width: 100%;
   margin: 0 0 16px;
   break-inside: avoid;
-  background: #fff;
+  background: var(--stamp-paper);
   border: none;
   padding: 0;
   cursor: pointer;
@@ -196,12 +226,12 @@ section h2 span { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
   width: 100%;
   height: auto;
 }
-/* white border (inside) covering the image edge; perforation cuts through it */
+/* frame (inside) covering the image edge; perforation cuts through it */
 .thumb::after {
   content: '';
   position: absolute;
   inset: 0;
-  border: calc(var(--perf-pad) + var(--inset)) solid #fff;
+  border: calc(var(--perf-pad) + var(--inset)) solid var(--stamp-paper);
   pointer-events: none;
   z-index: 1;
 }
@@ -249,14 +279,14 @@ section h2 span { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
 }
 .fs-bg::after {
   content: ''; position: absolute; inset: 0;
-  background: rgba(231, 232, 234, 0.62);   /* scrim keeps details readable */
+  background: var(--scrim);   /* scrim keeps details readable */
 }
 .fs-img, .fs-info { position: relative; z-index: 1; }
 .fs-close {
   position: fixed; top: 18px; right: 22px; z-index: 21;
   width: 44px; height: 44px; border-radius: 50%;
-  background: #fff; border: 1px solid var(--line);
-  color: #333; font-size: 1.6rem; line-height: 1; cursor: pointer;
+  background: var(--close-bg); border: 1px solid var(--line);
+  color: var(--close-text); font-size: 1.6rem; line-height: 1; cursor: pointer;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
 }
 .fs-close:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
@@ -302,6 +332,29 @@ section h2 span { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
 .row.small .v { font-size: 0.8rem; color: var(--muted); }
 .src { margin-top: 14px; }
 .src a { color: #6db36d; }
+
+/* theme toggle (top-right) */
+.theme-toggle {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 40;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  transition: background 0.15s, border-color 0.15s;
+}
+.theme-toggle:hover { border-color: var(--accent); }
 
 /* scroll-to-top: centered glass pill, revealed only while scrolling back up */
 .to-top {

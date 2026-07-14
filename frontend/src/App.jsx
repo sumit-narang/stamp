@@ -67,6 +67,16 @@ export default function App() {
   const [stuck, setStuck] = useState(false) // toolbar pinned to top?
   const [curBucket, setCurBucket] = useState(null) // section handed off to the bar
   const [showTop, setShowTop] = useState(false) // scroll-to-top button
+  const [theme, setTheme] = useState(() =>
+    localStorage.getItem('theme') ||
+    (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'),
+  )
+
+  // apply + persist the theme
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    localStorage.setItem('theme', theme)
+  }, [theme])
   const sentinelRef = useRef(null)
   const sectionRefs = useRef({})
   const headingRefs = useRef({})           // each section's <h2>
@@ -235,6 +245,15 @@ export default function App() {
       {selected && (
         <DetailModal id={selected} onClose={closeStamp} />
       )}
+
+      <button
+        className="theme-toggle"
+        onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+        aria-label="Toggle dark mode"
+        title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+      >
+        {theme === 'dark' ? '☀' : '☾'}
+      </button>
 
       <button
         className={showTop ? 'to-top show' : 'to-top'}
