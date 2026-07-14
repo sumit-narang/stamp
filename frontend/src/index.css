@@ -193,18 +193,38 @@ section h2 span { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
   column-gap: 14px;
 }
 
+/* .thumb = unmasked wrapper carrying the shadow (a mask clips a shadow on the
+   same element); .thumb-cut = the masked, perforated stamp inside. Layered soft
+   drop-shadows follow the perforated silhouette so it reads as pressed into the
+   paper (light mode only — see the dark-mode override below). */
 .thumb {
   position: relative;
   display: inline-block;
   width: 100%;
   margin: 0 0 16px;
   break-inside: avoid;
-  background: var(--stamp-paper);
   border: none;
   padding: 0;
+  background: none;
   cursor: pointer;
-  overflow: hidden;
-  transition: transform 0.18s ease;
+  transition: transform 0.18s ease, filter 0.18s ease;
+  filter:
+    drop-shadow(0 0.5px 0.5px rgba(0, 0, 0, 0.10))
+    drop-shadow(0 2px 3px rgba(0, 0, 0, 0.07))
+    drop-shadow(0 5px 9px rgba(0, 0, 0, 0.05));
+}
+.thumb:hover {
+  transform: translateY(-5px) scale(1.03);
+  filter:
+    drop-shadow(0 1px 1px rgba(0, 0, 0, 0.12))
+    drop-shadow(0 6px 10px rgba(0, 0, 0, 0.10))
+    drop-shadow(0 14px 22px rgba(0, 0, 0, 0.07));
+  z-index: 2;
+}
+.thumb-cut {
+  display: block;
+  position: relative;
+  background: var(--stamp-paper);
   --r: var(--perf-r);
   --g: var(--perf-g);
   --in: var(--perf-in);
@@ -221,13 +241,13 @@ section h2 span { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
     radial-gradient(var(--r) at calc(100% - var(--in)) 50%, #0000 96%, #000) 100% 50% / 100% var(--g) repeat-y;
   mask-composite: intersect;
 }
-.thumb img {
+.thumb-cut img {
   display: block;
   width: 100%;
   height: auto;
 }
 /* frame (inside) covering the image edge; perforation cuts through it */
-.thumb::after {
+.thumb-cut::after {
   content: '';
   position: absolute;
   inset: 0;
@@ -235,10 +255,9 @@ section h2 span { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
   pointer-events: none;
   z-index: 1;
 }
-.thumb:hover {
-  transform: translateY(-5px) scale(1.03);
-  z-index: 2;
-}
+/* dark mode: no press-into-paper shadow (light bg only) */
+:root[data-theme='dark'] .thumb { filter: none; }
+:root[data-theme='dark'] .thumb:hover { filter: none; }
 
 /* hover caption — title + year */
 .cap {

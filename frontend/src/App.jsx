@@ -227,14 +227,16 @@ export default function App() {
                 onClick={() => openStamp(s.id)}
                 title={s.title}
               >
-                <img
-                  loading="lazy"
-                  src={`${API}/stamps/${s.id}/thumb`}
-                  alt={s.title}
-                />
-                <span className="cap">
-                  {s.title}
-                  {s.year && <span className="yr"> · {s.year}</span>}
+                <span className="thumb-cut">
+                  <img
+                    loading="lazy"
+                    src={`${API}/stamps/${s.id}/thumb`}
+                    alt={s.title}
+                  />
+                  <span className="cap">
+                    {s.title}
+                    {s.year && <span className="yr"> · {s.year}</span>}
+                  </span>
                 </span>
               </button>
             ))}
