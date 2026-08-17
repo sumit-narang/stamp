@@ -179,11 +179,10 @@ export default function App() {
   const rangeLabel = curBucket ? (LABELS[curBucket] || curBucket) : ''
   const rangeCount = curBucket ? counts[curBucket] : ''
 
-  // changing filter replaces the whole grid — jump to top first so the new grid
-  // builds from a clean state instead of shifting under the current scroll
+  // changing filter swaps the content in place — keep the scroll position so the
+  // pinned toolbar stays put and only the grid below it updates
   const selectFilter = (b) => {
     if (b === active) return
-    if (window.scrollY > 0) window.scrollTo(0, 0)
     setActive(b)
   }
 
