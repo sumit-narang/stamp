@@ -67,6 +67,27 @@ export default function App() {
   const [stuck, setStuck] = useState(false) // toolbar pinned to top?
   const [curBucket, setCurBucket] = useState(null) // section handed off to the bar
   const [showTop, setShowTop] = useState(false) // scroll-to-top button
+  const [fade, setFade] = useState({ l: false, r: false }) // filter-row scroll fades
+  const filtersRef = useRef(null)
+
+  // show a fade on whichever side of the filter row still has hidden chips
+  const updateFade = useCallback(() => {
+    const el = filtersRef.current
+    if (!el) return
+    setFade({
+      l: el.scrollLeft > 2,
+      r: el.scrollLeft + el.clientWidth < el.scrollWidth - 2,
+    })
+  }, [])
+  useEffect(() => {
+    updateFade()
+    window.addEventListener('resize', updateFade)
+    window.addEventListener('scroll', updateFade, { passive: true })
+    return () => {
+      window.removeEventListener('resize', updateFade)
+      window.removeEventListener('scroll', updateFade)
+    }
+  }, [updateFade, buckets])
   const [theme, setTheme] = useState(() =>
     localStorage.getItem('theme') ||
     (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'),
@@ -158,6 +179,14 @@ export default function App() {
   const rangeLabel = curBucket ? (LABELS[curBucket] || curBucket) : ''
   const rangeCount = curBucket ? counts[curBucket] : ''
 
+  // changing filter replaces the whole grid — jump to top first so the new grid
+  // builds from a clean state instead of shifting under the current scroll
+  const selectFilter = (b) => {
+    if (b === active) return
+    if (window.scrollY > 0) window.scrollTo(0, 0)
+    setActive(b)
+  }
+
   return (
     <div className="app">
       <header className="hero">
@@ -173,7 +202,7 @@ export default function App() {
               }}
             >
               <span className="fan-stamp">
-                <img src={`${API}/stamps/${s.id}/thumb?size=400`} alt="" />
+                <img src={`${API}/stamps/${s.id}/thumb?perf=1&frame=1&size=400`} alt="" />
               </span>
             </div>
           ))}
@@ -189,23 +218,25 @@ export default function App() {
       >
         <div className="range">{rangeLabel} <span>{rangeCount}</span></div>
         <div className="tb-spacer" />
-        <nav className="filters">
-          <button
-            className={active === 'all' ? 'chip on' : 'chip'}
-            onClick={() => setActive('all')}
-          >
-            All <span>{stamps.length}</span>
-          </button>
-          {buckets.map((b) => (
+        <div className={`filters-wrap${fade.l ? ' fade-l' : ''}${fade.r ? ' fade-r' : ''}`}>
+          <nav className="filters" ref={filtersRef} onScroll={updateFade}>
             <button
-              key={b}
-              className={active === b ? 'chip on' : 'chip'}
-              onClick={() => setActive(b)}
+              className={active === 'all' ? 'chip on' : 'chip'}
+              onClick={() => selectFilter('all')}
             >
-              {LABELS[b] || b} <span>{counts[b] || 0}</span>
+              All <span>{stamps.length}</span>
             </button>
-          ))}
-        </nav>
+            {buckets.map((b) => (
+              <button
+                key={b}
+                className={active === b ? 'chip on' : 'chip'}
+                onClick={() => selectFilter(b)}
+              >
+                {LABELS[b] || b} <span>{counts[b] || 0}</span>
+              </button>
+            ))}
+          </nav>
+        </div>
       </div>
 
       {error && <p className="error">{error}</p>}
@@ -219,7 +250,9 @@ export default function App() {
             {LABELS[g.bucket] || g.bucket} <span>{g.items.length}</span>
           </h2>
           <div className="grid">
-            {g.items.map((s) => (
+            {g.items.map((s) => {
+              const perfSrc = `${API}/stamps/${s.id}/thumb?perf=1&frame=1&size=360`
+              return (
               <button
                 key={s.id}
                 ref={(el) => { stampRefs.current[s.id] = el }}
@@ -227,11 +260,16 @@ export default function App() {
                 onClick={() => openStamp(s.id)}
                 title={s.title}
               >
-                <span className="thumb-cut">
+                <span
+                  className="thumb-cut"
+                  style={{ WebkitMaskImage: `url("${perfSrc}")`, maskImage: `url("${perfSrc}")` }}
+                >
                   <img
                     loading="lazy"
-                    src={`${API}/stamps/${s.id}/thumb`}
+                    crossOrigin="anonymous"
+                    src={perfSrc}
                     alt={s.title}
+                    style={s.w && s.h ? { aspectRatio: `${s.w} / ${s.h}` } : undefined}
                   />
                   <span className="cap">
                     {s.title}
@@ -239,7 +277,8 @@ export default function App() {
                   </span>
                 </span>
               </button>
-            ))}
+              )
+            })}
           </div>
         </section>
       ))}
@@ -248,14 +287,16 @@ export default function App() {
         <DetailModal id={selected} onClose={closeStamp} />
       )}
 
-      <button
-        className="theme-toggle"
-        onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
-        aria-label="Toggle dark mode"
-        title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-      >
-        {theme === 'dark' ? '☀' : '☾'}
-      </button>
+      {!selected && (
+        <button
+          className="theme-toggle"
+          onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+          aria-label="Toggle dark mode"
+          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {theme === 'dark' ? '☀' : '☾'}
+        </button>
+      )}
 
       <button
         className={showTop ? 'to-top show' : 'to-top'}
@@ -313,17 +354,8 @@ function DetailModal({ id, onClose }) {
             <Row k="Designer" v={stamp.designer} />
             <Row k="Series" v={stamp.series} />
             <Row k="Bucket" v={LABELS[stamp.bucket] || stamp.bucket} />
-            <Row k="Date source" v={stamp.date_source} />
             {stamp.image_dimensions?.[0] && (
               <Row k="Image" v={`${stamp.image_dimensions[0]}×${stamp.image_dimensions[1]}`} />
-            )}
-            <Row k="Rights" v={stamp.rights} small />
-            {stamp.source_url && (
-              <p className="src">
-                <a href={stamp.source_url} target="_blank" rel="noreferrer">
-                  Source record ↗
-                </a>
-              </p>
             )}
           </>
         )}

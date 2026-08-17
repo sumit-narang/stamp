@@ -187,37 +187,54 @@ def get_image(stamp_id: str):
     return FileResponse(path, media_type="image/jpeg")
 
 
-def _trim_white(im, tol=22, extra=3):
-    """Crop near-uniform (scanner-white) margins, plus a few extra px to remove
-    the faint scanner shadow line along the right/bottom edges."""
+def _trim_white(im, light=210, sat_thresh=25, pad=1):
+    """Crop the light/grey scanner-paper margin evenly on every side.
+
+    The old approach used a single corner pixel + fixed tolerance, which left
+    uneven margins when a scan's border shade drifted (→ stray white lines on
+    random edges). Instead, build a "real content" mask — a pixel counts as
+    content if it is dark (brightness < `light`) OR saturated (max-min channel >
+    `sat_thresh`) — and crop to its bounding box. Light-grey margins of any shade
+    are ignored; dark text and coloured artwork anchor the crop, so genuine white
+    design bands (e.g. an 'ÉIRE' header) are kept."""
     im = im.convert("RGB")
-    bg = Image.new("RGB", im.size, im.getpixel((0, 0)))  # corner = background ref
-    diff = ImageChops.difference(im, bg)
-    diff = ImageChops.add(diff, diff, 2.0, -tol)          # threshold the difference
-    bbox = diff.getbbox()
+    r, g, b = im.split()
+    mx = ImageChops.lighter(ImageChops.lighter(r, g), b)
+    mn = ImageChops.darker(ImageChops.darker(r, g), b)
+    sat = ImageChops.difference(mx, mn)                    # per-pixel max-min
+    dark = im.convert("L").point(lambda v: 255 if v < light else 0)
+    color = sat.point(lambda v: 255 if v > sat_thresh else 0)
+    content = ImageChops.lighter(dark, color)
+    bbox = content.getbbox()
     if not bbox:
         return im
-    l, t, r, b = bbox
-    l, t = l + extra, t + extra
-    r, b = r - extra, b - extra
-    if r - l < 8 or b - t < 8:                            # safety: don't over-crop
-        return im.crop(bbox)
-    return im.crop((l, t, r, b))
+    l, t, r2, b2 = bbox
+    w, h = im.size
+    l, t = max(0, l - pad), max(0, t - pad)
+    r2, b2 = min(w, r2 + pad), min(h, b2 + pad)
+    if r2 - l < 8 or b2 - t < 8:                           # safety: don't over-crop
+        return im
+    return im.crop((l, t, r2, b2))
 
 
 def _perforate(im, border, hole_r, hole_gap):
-    """Bake a white stamp edge into the image: draw a white border *over* the
-    image's outer pixels (covering any scanned perforation, like the grid's CSS
-    border) and punch evenly-spaced transparent holes around the edge. Holes
-    divide each edge exactly, so they're symmetric and corner-aligned — no seam."""
+    """Bake the perforation into the image and punch evenly-spaced transparent
+    holes around the edge (supersampled → antialiased, corner-aligned → no seam).
+
+    If `border > 0`, a white paper border is first drawn *over* the outer pixels
+    (the framed 'stamp on white paper' look, used by the detail view). If
+    `border == 0`, no border is added — the perforation cuts straight into the
+    artwork, so nothing white is introduced (used by the grid, works on any
+    background)."""
     im = im.convert("RGB").copy()
     w, h = im.size
-    white = (255, 255, 255)
-    d = ImageDraw.Draw(im)
-    d.rectangle([0, 0, w, border], fill=white)          # top
-    d.rectangle([0, h - border, w, h], fill=white)      # bottom
-    d.rectangle([0, 0, border, h], fill=white)          # left
-    d.rectangle([w - border, 0, w, h], fill=white)      # right
+    if border > 0:
+        white = (255, 255, 255)
+        d = ImageDraw.Draw(im)
+        d.rectangle([0, 0, w, border], fill=white)          # top
+        d.rectangle([0, h - border, w, h], fill=white)      # bottom
+        d.rectangle([0, 0, border, h], fill=white)          # left
+        d.rectangle([w - border, 0, w, h], fill=white)      # right
 
     # punch the holes into an alpha mask, supersampled 4x then downscaled so the
     # scallop edges are smooth (antialiased) instead of blocky.
@@ -258,23 +275,28 @@ def _row_image(stamp_id):
 
 
 @app.get("/stamps/{stamp_id}/thumb", tags=["stamps"])
-def get_thumb(stamp_id: str, size: int = 420, perf: int = 0):
+def get_thumb(stamp_id: str, size: int = 420, perf: int = 0, frame: int = 1):
     """Trimmed, downscaled stamp image (cached per size).
 
-    Default = plain JPEG (the grid applies its perforation in CSS). With perf=1
-    the perforation + white border are baked into a transparent PNG — used by the
-    large detail view, where CSS masking leaves a sub-pixel seam."""
+    Default = plain JPEG. With perf=1 the perforation is baked into a transparent
+    PNG (no CSS mask → no sub-pixel seam at any zoom). frame=1 also paints a white
+    paper border (framed look, detail view); frame=0 cuts the perforation straight
+    into the artwork with nothing white added (the grid — works on any theme)."""
     size = max(64, min(size, 1600))
     safe = re.sub(r"[^A-Za-z0-9_-]", "_", stamp_id)
     if perf:
-        dest = THUMB_DIR / f"{safe}_{size}_perf.png"
+        dest = THUMB_DIR / f"{safe}_{size}_perf{frame}.png"
         if not dest.exists():
             im = _trim_white(Image.open(_row_image(stamp_id)))
             im.thumbnail((size, size))
             dim = max(im.size)               # actual size (source may be smaller)
-            border = max(8, round(dim * 0.017))
-            hole_r = max(3, round(dim * 0.006))
-            hole_gap = max(8, round(dim * 0.021))
+            grid = size <= 500               # grid tiles show ~half size, so the
+            r_ratio = 0.013 if grid else 0.006   # perforation must be proportionally
+            gap_ratio = 0.042 if grid else 0.021  # larger than the big detail view
+            b_ratio = 0.024 if grid else 0.017
+            border = max(6, round(dim * b_ratio)) if frame else 0
+            hole_r = max(3, round(dim * r_ratio))
+            hole_gap = max(8, round(dim * gap_ratio))
             _perforate(im, border, hole_r, hole_gap).save(dest, "PNG")
         return FileResponse(dest, media_type="image/png")
     dest = THUMB_DIR / f"{safe}_{size}.jpg"

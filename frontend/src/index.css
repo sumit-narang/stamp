@@ -9,7 +9,7 @@
   /* themeable surfaces */
   --chip-bg: #ffffff;
   --chip-text: #4b4f56;
-  --chip-hover: #f1f1f2;
+  --chip-hover: rgba(0, 0, 0, 0.1);
   --chip-on-bg: #141414;
   --chip-on-text: #ffffff;
   --scrim: rgba(231, 232, 234, 0.62);
@@ -23,6 +23,7 @@
   --perf-r: 2.5px;   /* perforation hole radius */
   --perf-g: 8px;     /* perforation hole spacing */
   --perf-in: 0px;    /* perforation inset from the edge */
+  --squircle: superellipse(2.2); /* continuous corners; 2 == plain circular arc */
 }
 
 :root[data-theme='dark'] {
@@ -50,7 +51,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 .app { max-width: 1200px; margin: 0 auto; padding: 24px 16px 64px; }
@@ -83,38 +84,15 @@ body {
   opacity: 1;
   transform: rotate(calc(var(--i) * 8deg)) translateX(calc(var(--i) * 62px));
 }
-/* same perforation + white border as the grid (.thumb) */
+/* perforation baked into the PNG (transparent notches, no white frame) */
 .fan-stamp {
   display: block;
   position: relative;
-  background: var(--stamp-paper);
-  --r: var(--perf-r);
-  --g: var(--perf-g);
-  --in: var(--perf-in);
-  -webkit-mask:
-    radial-gradient(var(--r) at 50% var(--in), #0000 96%, #000) 50% 0 / var(--g) 100% repeat-x,
-    radial-gradient(var(--r) at 50% calc(100% - var(--in)), #0000 96%, #000) 50% 100% / var(--g) 100% repeat-x,
-    radial-gradient(var(--r) at var(--in) 50%, #0000 96%, #000) 0 50% / 100% var(--g) repeat-y,
-    radial-gradient(var(--r) at calc(100% - var(--in)) 50%, #0000 96%, #000) 100% 50% / 100% var(--g) repeat-y;
-  -webkit-mask-composite: source-in;
-  mask:
-    radial-gradient(var(--r) at 50% var(--in), #0000 96%, #000) 50% 0 / var(--g) 100% repeat-x,
-    radial-gradient(var(--r) at 50% calc(100% - var(--in)), #0000 96%, #000) 50% 100% / var(--g) 100% repeat-x,
-    radial-gradient(var(--r) at var(--in) 50%, #0000 96%, #000) 0 50% / 100% var(--g) repeat-y,
-    radial-gradient(var(--r) at calc(100% - var(--in)) 50%, #0000 96%, #000) 100% 50% / 100% var(--g) repeat-y;
-  mask-composite: intersect;
 }
 .fan-stamp img {
   display: block;
   width: 100%;
   height: auto;
-}
-.fan-stamp::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border: calc(var(--perf-pad) + var(--inset)) solid var(--stamp-paper);
-  pointer-events: none;
 }
 
 /* ---- toolbar: filters (left) by default; when stuck, year range appears
@@ -128,9 +106,20 @@ body {
   display: flex;
   align-items: center;
   gap: 0;
-  padding: 14px 0;
-  margin-bottom: 6px;
-  border-bottom: 1px solid var(--line);
+  /* bleed the bg into the .app side padding so the grid's edge drop-shadows
+     don't peek out beside the sticky bar */
+  padding: 14px 16px;
+  margin: 0 -16px 6px;
+}
+/* divider line, inset to the grid content width (not the full bleed) */
+.toolbar::after {
+  content: '';
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 0;
+  height: 1px;
+  background: var(--line);
 }
 /* range slides open on the left; the spacer grows to push filters right —
    both are animatable, so the layout change eases in smoothly when stuck */
@@ -152,6 +141,12 @@ body {
   transition: flex-grow 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .toolbar.has-range .tb-spacer { flex-grow: 1; }
+/* filter row: horizontally scrollable, with a fade on whichever side has more */
+.filters-wrap {
+  position: relative;
+  min-width: 0;
+  display: flex;
+}
 .filters {
   display: flex;
   gap: 8px;
@@ -159,15 +154,37 @@ body {
   scrollbar-width: none;
 }
 .filters::-webkit-scrollbar { display: none; }
+.filters-wrap::before,
+.filters-wrap::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 1;
+}
+.filters-wrap::before { left: 0; background: linear-gradient(to right, var(--bg), transparent); }
+.filters-wrap::after { right: 0; background: linear-gradient(to left, var(--bg), transparent); }
+.filters-wrap.fade-l::before { opacity: 1; }
+.filters-wrap.fade-r::after { opacity: 1; }
 
 .chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: var(--chip-bg);
   color: var(--chip-text);
   border: none;
-  border-radius: 12px;
+  border-radius: 17px;
+  corner-shape: var(--squircle);
   padding: 9px 16px;
+  font-family: inherit;
   font-size: 0.9rem;
   font-weight: 500;
+  text-align: center;
   cursor: pointer;
   white-space: nowrap;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
@@ -207,53 +224,32 @@ section h2 span { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
   padding: 0;
   background: none;
   cursor: pointer;
-  transition: transform 0.18s ease, filter 0.18s ease;
+  /* springy pop on hover — only the (GPU-cheap) transform animates; the shadow
+     stays constant so we don't recompute the drop-shadow blur every frame */
+  transition: transform 0.34s cubic-bezier(0.34, 1.56, 0.64, 1);
   filter:
-    drop-shadow(0 0.5px 0.5px rgba(0, 0, 0, 0.10))
-    drop-shadow(0 2px 3px rgba(0, 0, 0, 0.07))
-    drop-shadow(0 5px 9px rgba(0, 0, 0, 0.05));
+    drop-shadow(0 1px 2px rgba(0, 0, 0, 0.10))
+    drop-shadow(0 4px 8px rgba(0, 0, 0, 0.06));
 }
 .thumb:hover {
-  transform: translateY(-5px) scale(1.03);
-  filter:
-    drop-shadow(0 1px 1px rgba(0, 0, 0, 0.12))
-    drop-shadow(0 6px 10px rgba(0, 0, 0, 0.10))
-    drop-shadow(0 14px 22px rgba(0, 0, 0, 0.07));
+  transform: translateY(-6px) scale(1.06);
   z-index: 2;
 }
+/* perforation is baked into the PNG (transparent notches, no white added) — the
+   drop-shadow on .thumb follows that alpha silhouette. The same PNG is used as a
+   mask (set inline) so overlays like the hover caption clip to the stamp shape. */
 .thumb-cut {
   display: block;
   position: relative;
-  background: var(--stamp-paper);
-  --r: var(--perf-r);
-  --g: var(--perf-g);
-  --in: var(--perf-in);
-  -webkit-mask:
-    radial-gradient(var(--r) at 50% var(--in), #0000 96%, #000) 50% 0 / var(--g) 100% repeat-x,
-    radial-gradient(var(--r) at 50% calc(100% - var(--in)), #0000 96%, #000) 50% 100% / var(--g) 100% repeat-x,
-    radial-gradient(var(--r) at var(--in) 50%, #0000 96%, #000) 0 50% / 100% var(--g) repeat-y,
-    radial-gradient(var(--r) at calc(100% - var(--in)) 50%, #0000 96%, #000) 100% 50% / 100% var(--g) repeat-y;
-  -webkit-mask-composite: source-in;
-  mask:
-    radial-gradient(var(--r) at 50% var(--in), #0000 96%, #000) 50% 0 / var(--g) 100% repeat-x,
-    radial-gradient(var(--r) at 50% calc(100% - var(--in)), #0000 96%, #000) 50% 100% / var(--g) 100% repeat-x,
-    radial-gradient(var(--r) at var(--in) 50%, #0000 96%, #000) 0 50% / 100% var(--g) repeat-y,
-    radial-gradient(var(--r) at calc(100% - var(--in)) 50%, #0000 96%, #000) 100% 50% / 100% var(--g) repeat-y;
-  mask-composite: intersect;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
 }
 .thumb-cut img {
   display: block;
   width: 100%;
   height: auto;
-}
-/* frame (inside) covering the image edge; perforation cuts through it */
-.thumb-cut::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border: calc(var(--perf-pad) + var(--inset)) solid var(--stamp-paper);
-  pointer-events: none;
-  z-index: 1;
 }
 /* dark mode: no press-into-paper shadow (light bg only) */
 :root[data-theme='dark'] .thumb { filter: none; }
@@ -275,7 +271,7 @@ section h2 span { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
   transition: opacity 0.15s;
   pointer-events: none;
 }
-.cap .yr { color: #cfe6cf; }
+.cap .yr { color: #fff; }
 .cap { z-index: 2; }
 .thumb:hover .cap { opacity: 1; }
 
@@ -323,10 +319,10 @@ section h2 span { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
 .fs-info h3 { margin: 0 0 18px; font-size: 1.6rem; }
 .loading { padding: 40px 0; color: var(--muted); }
 
-/* shared-element morph */
+/* shared-element morph — smooth decelerating glide (no bounce) */
 ::view-transition-group(stamp) {
-  animation-duration: 0.28s;
-  animation-timing-function: cubic-bezier(1, -0.4, 0.35, 0.95);
+  animation-duration: 0.42s;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 ::view-transition-old(root),
 ::view-transition-new(root) {
@@ -346,9 +342,10 @@ section h2 span { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
 }
 
 .row { display: flex; gap: 10px; margin: 6px 0; font-size: 0.92rem; }
-.row .k { color: var(--muted); min-width: 92px; flex-shrink: 0; }
+/* labels use the text colour at low opacity so they blend with the backdrop */
+.row .k { color: var(--text); opacity: 0.45; min-width: 92px; flex-shrink: 0; }
 .row .v { color: var(--text); }
-.row.small .v { font-size: 0.8rem; color: var(--muted); }
+.row.small .v { font-size: 0.8rem; color: var(--text); opacity: 0.55; }
 .src { margin-top: 14px; }
 .src a { color: #6db36d; }
 
