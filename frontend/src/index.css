@@ -326,8 +326,13 @@ section h2 span { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
 }
 .fs-img img {
   display: block;
+  /* Size from the known aspect ratio, not from whichever resolution happens to
+     be loaded — the low-res tile and the sharpened image then occupy exactly the
+     same box, so the swap only changes sharpness. The 100 fallback keeps the old
+     behaviour (fill the width cap) if the ratio is unknown. */
+  width: min(48vw, calc(82vh * var(--ar, 100)));
+  height: auto;
   max-height: 82vh; max-width: 48vw;
-  width: auto; height: auto;
 }
 .fs-info { flex: 0 1 420px; max-width: 460px; }
 .fs-info h3 { margin: 0 0 18px; font-size: 1.6rem; }
@@ -352,7 +357,10 @@ section h2 span { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
 }
 @media (max-width: 720px) {
   .fs { gap: 24px; padding: 64px 20px 32px; }
-  .fs-img img { max-width: 92vw; max-height: 60vh; }
+  .fs-img img {
+    width: min(92vw, calc(60vh * var(--ar, 100)));
+    max-width: 92vw; max-height: 60vh;
+  }
 }
 
 .row { display: flex; gap: 10px; margin: 6px 0; font-size: 0.92rem; }

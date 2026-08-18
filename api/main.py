@@ -8,6 +8,7 @@ import json
 import os
 import re
 import sqlite3
+from functools import lru_cache
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query
@@ -82,6 +83,36 @@ def to_stamp(row):
     return d
 
 
+GRID_SIZE = 360          # the thumb size the gallery grid requests
+
+
+def _safe_id(stamp_id):
+    return re.sub(r"[^A-Za-z0-9_-]", "_", str(stamp_id))
+
+
+@lru_cache(maxsize=1)
+def _grid_dims():
+    """Real, post-trim dimensions of every grid thumb, keyed by sanitised id.
+
+    The DB stores the *untrimmed* source size, but the thumb has its white
+    scanner margin cropped — and how much margin there was differs per scan. For
+    ~9% of stamps the two aspect ratios disagree by >3%, which is enough that a
+    tile reserves the wrong height and visibly resizes when its image lands. The
+    grid needs the size it will actually render, so read it from the cached WebP
+    headers (~0.6s for the whole cache, once per process; PIL reads the header
+    only, it does not decode). Anything not yet generated falls back to the DB
+    dimensions, which is close enough until the cache warms."""
+    dims = {}
+    suffix = f"_{GRID_SIZE}_perf1.webp"
+    for path in THUMB_DIR.glob(f"*{suffix}"):
+        try:
+            with Image.open(path) as im:
+                dims[path.name[: -len(suffix)]] = im.size
+        except Exception:
+            continue                       # a truncated/half-written thumb
+    return dims
+
+
 @app.get("/gallery", tags=["browse"])
 def gallery():
     """Compact list of every stamp for the image gallery (id, bucket, has_image)."""
@@ -89,8 +120,11 @@ def gallery():
         rows = con.execute(
             "SELECT id, title, era, year, image_path, image_w, image_h "
             "FROM stamps").fetchall()
+    dims = _grid_dims()
     items = []
     for r in rows:
+        # tw/th = what the grid tile will actually be; w/h = untrimmed original
+        tw, th = dims.get(_safe_id(r["id"]), (r["image_w"], r["image_h"]))
         items.append({
             "id": r["id"],
             "title": r["title"],
@@ -99,6 +133,8 @@ def gallery():
             "has_image": bool(r["image_path"]),
             "w": r["image_w"],
             "h": r["image_h"],
+            "tw": tw,
+            "th": th,
             "image_api": f"/stamps/{r['id']}/image",
         })
     order = {b: i for i, b in enumerate(BUCKETS)}

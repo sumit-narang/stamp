@@ -194,6 +194,22 @@ export default function App() {
     return () => clearTimeout(t)
   }, [hero])
 
+  // Width of a grid column, measured from a real tile. `content-visibility: auto`
+  // sizes off-screen tiles from contain-intrinsic-size (aspect-ratio does NOT
+  // override it), so a single flat guess for all 2,771 tiles made the page length
+  // re-estimate continuously while scrolling — ~10,000px of drift. With the
+  // column width known we can give every tile its true height instead.
+  const [tileW, setTileW] = useState(0)
+  useEffect(() => {
+    const measure = () => {
+      const t = document.querySelector('.thumb')
+      if (t) setTileW(t.offsetWidth)
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [stamps.length])
+
   const shown = active === 'all' ? stamps : stamps.filter((s) => s.bucket === active)
 
   // group shown stamps by bucket, preserving API order
@@ -295,6 +311,11 @@ export default function App() {
           <div className="grid">
             {g.items.map((s) => {
               const perfSrc = `${API}/stamps/${s.id}/thumb?perf=1&frame=1&size=360`
+              // tw/th are the tile's real post-trim size; w/h (untrimmed) are only
+              // a fallback for thumbs the API has not generated yet.
+              const tw = s.tw || s.w
+              const th = s.th || s.h
+              const ratio = tw && th ? `${tw} / ${th}` : undefined
               return (
               <button
                 key={s.id}
@@ -302,6 +323,14 @@ export default function App() {
                 className="thumb"
                 onClick={() => openStamp(s.id)}
                 title={s.title}
+                style={{
+                  ...(ratio ? { aspectRatio: ratio } : null),
+                  // the height this tile will really occupy, so skipped tiles
+                  // reserve exactly the right space and the page stops resizing
+                  ...(tileW && tw && th
+                    ? { containIntrinsicSize: `auto ${tileW}px auto ${Math.round((tileW * th) / tw)}px` }
+                    : null),
+                }}
               >
                 <span
                   className="thumb-cut"
@@ -314,7 +343,7 @@ export default function App() {
                     crossOrigin="anonymous"
                     src={perfSrc}
                     alt={s.title}
-                    style={s.w && s.h ? { aspectRatio: `${s.w} / ${s.h}` } : undefined}
+                    style={ratio ? { aspectRatio: ratio } : undefined}
                   />
                   <span className="cap">
                     {s.title}
@@ -329,7 +358,16 @@ export default function App() {
       ))}
 
       {selected && (
-        <DetailModal id={selected} onClose={closeStamp} />
+        <DetailModal
+          id={selected}
+          ar={(() => {
+            const s = stamps.find((x) => x.id === selected)
+            const w = s && (s.tw || s.w)
+            const h = s && (s.th || s.h)
+            return w && h ? w / h : null
+          })()}
+          onClose={closeStamp}
+        />
       )}
 
       {!selected && (
@@ -355,7 +393,7 @@ export default function App() {
   )
 }
 
-function DetailModal({ id, onClose }) {
+function DetailModal({ id, ar, onClose }) {
   const [stamp, setStamp] = useState(null)
   // reuse the exact grid image (already cached) so the detail shows instantly
   const gridSrc = `${API}/stamps/${id}/thumb?perf=1&frame=1&size=360`
@@ -414,7 +452,15 @@ function DetailModal({ id, onClose }) {
         style={{ backgroundImage: `url(${gridSrc})` }}
       />
       <button className="fs-close" onClick={onClose} title="Back to gallery"><CloseIcon /></button>
-      <div className="fs-img" style={{ viewTransitionName: 'stamp' }}>
+      {/* --ar lets the image occupy its final box from the very first frame.
+          Without it the box is sized by whatever is loaded: the cached 360px
+          grid tile is narrower than the 48vw cap, so it rendered small and then
+          jumped larger when the sharpened version arrived. Mobile never showed
+          this because 92vw ~= 360px there. */}
+      <div
+        className="fs-img"
+        style={{ viewTransitionName: 'stamp', ...(ar ? { '--ar': ar } : {}) }}
+      >
         {/* crossOrigin matches the grid <img> so the cached grid image is reused
             (CORS and non-CORS requests cache separately) → instant on open */}
         <img src={src} alt={stamp?.title || ''} crossOrigin="anonymous" />
