@@ -55,10 +55,17 @@ export default function App() {
   const [error, setError] = useState(null)
   const stampRefs = useRef({})                      // grid .thumb by stamp id
 
+  // the shared-element morph is janky on mobile — open/close instantly there
+  // (the detail already starts from the cached grid image, so it's immediate)
+  const noMorph = () =>
+    !document.startViewTransition ||
+    window.matchMedia('(max-width: 720px)').matches ||
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
   // Open with a shared-element morph: the framed stamp flies into full screen.
   const openStamp = (id) => {
     const el = stampRefs.current[id]
-    if (!document.startViewTransition || !el) {
+    if (noMorph() || !el) {
       setSelected(id)
       return
     }
@@ -72,7 +79,7 @@ export default function App() {
   // Close with the reverse morph: full-screen image flies back to its grid cell.
   const closeStamp = () => {
     const el = stampRefs.current[selected]
-    if (!document.startViewTransition) {
+    if (noMorph()) {
       setSelected(null)
       return
     }
