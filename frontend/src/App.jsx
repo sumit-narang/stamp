@@ -15,6 +15,14 @@ const LABELS = {
   '1922-1983': '1983 - 1922',
 }
 
+// issue_date is stored ISO (YYYY-MM-DD); the detail view shows it DD-MM-YYYY.
+// A handful of rows hold scrape junk instead of a date, so anything that is not
+// a well-formed ISO date is passed through untouched rather than mangled.
+const isoToDmy = (d) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d)
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : d
+}
+
 // the 5 hand-picked stamps shown in the hero fan (left → right)
 const HERO_IDS = [
   'cz313h371', // Irish Handcrafts (harp maker)
@@ -434,7 +442,7 @@ function DetailModal({ id, ar, onClose }) {
   }, [id, esc])
 
   const dateLabel = (s) => {
-    if (s.issue_date) return s.issue_date
+    if (s.issue_date) return isoToDmy(s.issue_date)
     if (s.year) return `${s.year} (year only)`
     if (s.bucket) return `circa ${LABELS[s.bucket] || s.bucket}`
     return 'unknown'
