@@ -25,6 +25,8 @@ data/thumbs/
 .playwright-mcp/
 *.jpeg
 *.png
+!frontend/public/           # but do track frontend static assets (favicon, etc.)
+!frontend/public/*.png
 /colnect_list_*.json
 /colnect_details.json
 

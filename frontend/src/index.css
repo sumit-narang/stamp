@@ -304,11 +304,14 @@ section h2 span { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
   position: fixed; top: 18px; right: 22px; z-index: 21;
   width: 40px; height: 40px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  /* always the dark-mode filter-chip background */
+  /* inverted vs the theme so it contrasts: dark button on light pages … */
   background: #1e2126; border: none;
   color: #e8e9ec; line-height: 1; cursor: pointer;
 }
 .fs-close:hover { background: #2e3339; }  /* lighter version of the button bg */
+/* … light button on dark pages */
+:root[data-theme='dark'] .fs-close { background: #f2f3f5; color: #1e2126; }
+:root[data-theme='dark'] .fs-close:hover { background: #e2e4e8; }
 .fs-img {
   flex: 0 1 auto;
   /* shadow follows the perforated img inside */

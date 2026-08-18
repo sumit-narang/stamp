@@ -1,7 +1,9 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { flushSync } from 'react-dom'
 
-const API = 'http://localhost:8000'
+// API base: same-origin `/stamp-api` in production (set via VITE_API_URL at build
+// time), falling back to the local dev server.
+const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
 // Friendly bucket labels. Written high→low so the chips read as one continuous
 // descending timeline (2026→2020, 2019→2011, …) matching the newest-first order.
@@ -339,15 +341,18 @@ export default function App() {
 
 function DetailModal({ id, onClose }) {
   const [stamp, setStamp] = useState(null)
-  // start with the (already-cached) thumb for an instant morph, then sharpen
-  const [src, setSrc] = useState(`${API}/stamps/${id}/thumb`)
+  // start with the exact grid image (already in the browser cache) so the morph
+  // shows instantly, then upgrade to the hi-res perforated PNG once it loads
+  const gridSrc = `${API}/stamps/${id}/thumb?perf=1&frame=1&size=360`
+  const [src, setSrc] = useState(gridSrc)
   const esc = useCallback((e) => e.key === 'Escape' && onClose(), [onClose])
 
   useEffect(() => {
     fetch(`${API}/stamps/${id}`).then((r) => r.json()).then(setStamp)
+    const hiRes = `${API}/stamps/${id}/thumb?size=1600&perf=1`
     const hi = new Image()
-    hi.onload = () => setSrc(`${API}/stamps/${id}/thumb?size=1600&perf=1`)
-    hi.src = `${API}/stamps/${id}/thumb?size=1600&perf=1`
+    hi.onload = () => setSrc(hiRes)
+    hi.src = hiRes
     document.addEventListener('keydown', esc)
     return () => document.removeEventListener('keydown', esc)
   }, [id, esc])

@@ -5,6 +5,7 @@ Run:  .venv/bin/uvicorn api.main:app --reload --port 8000
 Docs: http://localhost:8000/docs   (auto-generated OpenAPI)
 """
 import json
+import os
 import re
 import sqlite3
 from pathlib import Path
@@ -25,6 +26,10 @@ THUMB_DIR.mkdir(parents=True, exist_ok=True)
 # 1922-2019 use the four DRI era buckets.
 BUCKETS = ["2020-2026", "2011-2019", "2001-2010", "1984-2000", "1922-1983"]
 
+# production mode (STAMP_ENV=production): disables the interactive API docs and
+# gates the raw full-resolution image routes (only perforated thumbnails served).
+PROD = os.environ.get("STAMP_ENV") == "production"
+
 app = FastAPI(
     title="Irish Stamp API",
     version="0.1.0",
@@ -33,11 +38,20 @@ app = FastAPI(
         "Repository of Ireland (An Post Museum & Archive). Issue dates are "
         "currently era estimates; exact dates are being backfilled."
     ),
+    # hide the API surface + schema in production
+    docs_url=None if PROD else "/docs",
+    redoc_url=None if PROD else "/redoc",
+    openapi_url=None if PROD else "/openapi.json",
 )
 
+# CORS: locked to specific origins in production via STAMP_CORS_ORIGINS
+# (comma-separated); defaults to "*" for local dev. The deployed site is
+# same-origin (served behind the same nginx via /stamp-api), so CORS is moot
+# there — this just avoids leaving it wide open when hit cross-origin.
+_origins = os.environ.get("STAMP_CORS_ORIGINS", "*")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[o.strip() for o in _origins.split(",")] if _origins != "*" else ["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -177,6 +191,10 @@ def get_stamp(stamp_id: str):
 
 @app.get("/stamps/{stamp_id}/image", tags=["stamps"])
 def get_image(stamp_id: str):
+    # raw full-resolution originals are not served in production (licensing) —
+    # only perforated thumbnails via /thumb are public
+    if PROD:
+        raise HTTPException(404, "not available")
     with db() as con:
         row = con.execute("SELECT image_path FROM stamps WHERE id = ?", [stamp_id]).fetchone()
     if not row or not row["image_path"]:
@@ -349,6 +367,6 @@ def stats():
     }
 
 
-# serve downloaded images statically too: /images/{id}/{file}.jpg
-if IMG_ROOT.exists():
+# serve raw images statically (dev only — not exposed in production)
+if not PROD and IMG_ROOT.exists():
     app.mount("/images", StaticFiles(directory=IMG_ROOT), name="images")

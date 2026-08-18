@@ -3,13 +3,56 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Irish Stamp Gallery</title>
+
+    <!-- favicon (relative paths resolve to /stamp/… in prod and /… in dev) -->
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <link rel="apple-touch-icon" href="favicon.png" />
+
+    <!-- SEO -->
+    <title>Irish Stamp Gallery — Every Irish postage stamp since 1922</title>
+    <meta
+      name="description"
+      content="A visual gallery of every Irish postage stamp issued since 1922 — browse 2,700+ stamps by era, with issue dates, designers and series."
+    />
+    <link rel="canonical" href="https://sumitnarang.com/stamp/" />
+
+    <!-- Open Graph / social -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Irish Stamp Gallery" />
+    <meta property="og:title" content="Irish Stamp Gallery" />
+    <meta
+      property="og:description"
+      content="Every Irish postage stamp since 1922 — browse 2,700+ stamps by era."
+    />
+    <meta property="og:url" content="https://sumitnarang.com/stamp/" />
+    <meta
+      property="og:image"
+      content="https://sumitnarang.com/stamp-api/stamps/dj538v485/thumb?size=800"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Irish Stamp Gallery" />
+    <meta
+      name="twitter:description"
+      content="Every Irish postage stamp since 1922 — browse 2,700+ stamps by era."
+    />
+    <meta
+      name="twitter:image"
+      content="https://sumitnarang.com/stamp-api/stamps/dj538v485/thumb?size=800"
+    />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
+
+    <!-- privacy-friendly analytics (self-proxied GoatCounter, same as other sites) -->
+    <script
+      data-goatcounter="https://sumitnarang.com/gc/count"
+      async
+      src="/gc/count.js"
+    ></script>
   </head>
   <body>
     <div id="root"></div>
