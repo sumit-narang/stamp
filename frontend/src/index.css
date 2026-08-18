@@ -226,6 +226,10 @@ section h2 span { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
   padding: 0;
   background: none;
   cursor: pointer;
+  /* skip rendering (mask + drop-shadow) for off-screen tiles — big win on mobile
+     with thousands of stamps; `auto` lets the browser remember real sizes */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 220px;
   /* springy pop on hover — only the (GPU-cheap) transform animates; the shadow
      stays constant so we don't recompute the drop-shadow blur every frame */
   transition: transform 0.34s cubic-bezier(0.34, 1.56, 0.64, 1);

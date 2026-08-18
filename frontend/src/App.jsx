@@ -349,7 +349,16 @@ function DetailModal({ id, onClose }) {
 
   useEffect(() => {
     fetch(`${API}/stamps/${id}`).then((r) => r.json()).then(setStamp)
-    const hiRes = `${API}/stamps/${id}/thumb?size=1600&perf=1`
+    // size the hi-res to the actual on-screen image box (not the whole viewport)
+    // × dpr, so a phone requests ~1000px instead of the full 1600 — much smaller
+    // PNG + faster cold generation, still sharp on the device
+    const dpr = Math.min(window.devicePixelRatio || 1, 2)
+    const mobile = window.innerWidth <= 720
+    const boxW = window.innerWidth * (mobile ? 0.92 : 0.48)
+    const boxH = window.innerHeight * (mobile ? 0.60 : 0.82)
+    const target = Math.round(Math.max(boxW, boxH) * dpr)
+    const hiSize = Math.min(1600, Math.max(700, target))
+    const hiRes = `${API}/stamps/${id}/thumb?size=${hiSize}&perf=1`
     const hi = new Image()
     hi.onload = () => setSrc(hiRes)
     hi.src = hiRes
