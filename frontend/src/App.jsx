@@ -22,6 +22,27 @@ const HERO_IDS = [
   '95947j956', // Sheep – Donegal Blackface
 ]
 
+// icons from /image/*.svg — inlined so they inherit the button's currentColor.
+// stroke-widths normalised so all three render at the same visual weight
+// (the cross's 2.667/24 ratio, scaled to each icon's viewBox).
+const MoonIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 534 534" fill="none" aria-hidden="true">
+    <path d="M266.667 33.3423C137.8 33.3423 33.3334 137.809 33.3334 266.676C33.3334 395.542 137.8 500.009 266.667 500.009C372.367 500.009 471.317 439.389 500 343.006" stroke="currentColor" strokeWidth="50" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M500 333.342C494.397 333.342 488.84 333.146 483.333 332.756C283.333 366.676 183.334 250.009 266.667 33.3423" stroke="currentColor" strokeWidth="50" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+const SunIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 734 734" fill="none" aria-hidden="true">
+    <path d="M366.667 33.3334V100M366.667 633.333V700M100 366.667H33.3334M177.137 177.137L129.997 129.997M556.197 177.137L603.337 129.997M177.137 556.333L129.997 603.473M556.197 556.333L603.337 603.473M700 366.667H633.333M533.333 366.667C533.333 458.713 458.713 533.333 366.667 533.333C274.619 533.333 200 458.713 200 366.667C200 274.619 274.619 200 366.667 200C458.713 200 533.333 274.619 533.333 366.667Z" stroke="currentColor" strokeWidth="69" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+const CloseIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M18 6L6 18" stroke="currentColor" strokeWidth="2.667" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M6 6L18 18" stroke="currentColor" strokeWidth="2.667" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+
 export default function App() {
   const [buckets, setBuckets] = useState([])
   const [counts, setCounts] = useState({})
@@ -98,6 +119,13 @@ export default function App() {
     document.documentElement.dataset.theme = theme
     localStorage.setItem('theme', theme)
   }, [theme])
+
+  // lock page scroll while the full-screen detail is open (grid behind stays put)
+  useEffect(() => {
+    const html = document.documentElement
+    html.style.overflow = selected ? 'hidden' : ''
+    return () => { html.style.overflow = '' }
+  }, [selected])
   const sentinelRef = useRef(null)
   const sectionRefs = useRef({})
   const headingRefs = useRef({})           // each section's <h2>
@@ -293,16 +321,18 @@ export default function App() {
           aria-label="Toggle dark mode"
           title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
         >
-          {theme === 'dark' ? '☀' : '☾'}
+          {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
         </button>
       )}
 
-      <button
-        className={showTop ? 'to-top show' : 'to-top'}
-        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-      >
-        Back to top
-      </button>
+      {!selected && (
+        <button
+          className={showTop ? 'to-top show' : 'to-top'}
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        >
+          Back to top
+        </button>
+      )}
     </div>
   )
 }
@@ -336,7 +366,7 @@ function DetailModal({ id, onClose }) {
         aria-hidden="true"
         style={{ backgroundImage: `url(${src})` }}
       />
-      <button className="fs-close" onClick={onClose} title="Back to gallery">×</button>
+      <button className="fs-close" onClick={onClose} title="Back to gallery"><CloseIcon /></button>
       <div className="fs-img" style={{ viewTransitionName: 'stamp' }}>
         <img src={src} alt={stamp?.title || ''} />
       </div>

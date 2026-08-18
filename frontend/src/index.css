@@ -283,7 +283,7 @@ section h2 span { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
   background: var(--bg);
   display: flex; align-items: center; justify-content: center;
   gap: 56px; padding: 56px; box-sizing: border-box;
-  overflow: auto; flex-wrap: wrap;
+  overflow: auto; overscroll-behavior: contain; flex-wrap: wrap;
 }
 /* blurred stamp filling the backdrop */
 .fs-bg {
@@ -298,13 +298,15 @@ section h2 span { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
 }
 .fs-img, .fs-info { position: relative; z-index: 1; }
 .fs-close {
+  /* top-right — the theme toggle now lives bottom-right, so no collision */
   position: fixed; top: 18px; right: 22px; z-index: 21;
-  width: 44px; height: 44px; border-radius: 50%;
-  background: var(--close-bg); border: 1px solid var(--line);
-  color: var(--close-text); font-size: 1.6rem; line-height: 1; cursor: pointer;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+  width: 40px; height: 40px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  /* always the dark-mode filter-chip background */
+  background: #1e2126; border: none;
+  color: #e8e9ec; line-height: 1; cursor: pointer;
 }
-.fs-close:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+.fs-close:hover { background: var(--accent); color: #fff; }
 .fs-img {
   flex: 0 1 auto;
   /* shadow follows the perforated img inside */
@@ -349,30 +351,29 @@ section h2 span { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
 .src { margin-top: 14px; }
 .src a { color: #6db36d; }
 
-/* theme toggle (top-right) */
+/* theme toggle (bottom-right) — background matches the filter chips per theme */
 .theme-toggle {
   position: fixed;
-  top: 16px;
-  right: 16px;
+  bottom: 24px;
+  right: 24px;
   z-index: 40;
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  border: 1px solid var(--line);
-  background: var(--panel);
-  color: var(--text);
-  font-size: 1.1rem;
+  border: none;
+  background: var(--chip-bg);
+  color: var(--chip-text);
   line-height: 1;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-  transition: background 0.15s, border-color 0.15s;
+  transition: background 0.15s;
 }
-.theme-toggle:hover { border-color: var(--accent); }
+.theme-toggle:hover { background: var(--chip-hover); }
 
-/* scroll-to-top: centered glass pill, revealed only while scrolling back up */
+/* scroll-to-top pill — inverted vs the theme: light mode shows the dark-chip
+   colours, dark mode shows the light-chip colours */
 .to-top {
   position: fixed;
   bottom: 28px;
@@ -381,20 +382,21 @@ section h2 span { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
   z-index: 50;
   padding: 8px 16px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  background: rgba(10, 10, 10, 0.82);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  color: #fff;
+  border: none;
+  background: #1e2126;   /* dark-chip bg (light mode) */
+  color: #c8ccd2;        /* dark-chip text */
   font-size: 14px;
   font-weight: 500;
   letter-spacing: -0.2px;
   white-space: nowrap;
   cursor: pointer;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.10), 0 1px 3px rgba(0, 0, 0, 0.08);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.22s ease, transform 0.22s ease;
+}
+:root[data-theme='dark'] .to-top {
+  background: #ffffff;   /* light-chip bg (dark mode) */
+  color: #4b4f56;        /* light-chip text */
 }
 .to-top.show {
   opacity: 1;
