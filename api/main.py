@@ -292,18 +292,32 @@ def _row_image(stamp_id):
     return src
 
 
+# Thumbnails are deterministic for a given (id, size, perf, frame) — the URL is
+# the identity, so they can be cached forever. Without this the responses carried
+# only etag/last-modified, and Safari revalidated on every open (a round trip per
+# image on cellular).
+IMMUTABLE = {"Cache-Control": "public, max-age=31536000, immutable"}
+
+
 @app.get("/stamps/{stamp_id}/thumb", tags=["stamps"])
 def get_thumb(stamp_id: str, size: int = 420, perf: int = 0, frame: int = 1):
     """Trimmed, downscaled stamp image (cached per size).
 
     Default = plain JPEG. With perf=1 the perforation is baked into a transparent
-    PNG (no CSS mask → no sub-pixel seam at any zoom). frame=1 also paints a white
+    WebP (no CSS mask → no sub-pixel seam at any zoom). frame=1 also paints a white
     paper border (framed look, detail view); frame=0 cuts the perforation straight
-    into the artwork with nothing white added (the grid — works on any theme)."""
+    into the artwork with nothing white added (the grid — works on any theme).
+
+    perf output is WebP, not PNG: these are photographic scans, so PNG was ~11x
+    larger (a 360px grid tile went 186KB → 17KB, a 1600px detail 2.0MB → 151KB).
+    That size was the whole reason mobile detail opens took 5-7s. Served
+    unconditionally rather than negotiated on Accept — every browser with alpha
+    WebP support is Safari 14+/2020, and a `Vary: Accept` would fragment the
+    browser cache we are relying on here."""
     size = max(64, min(size, 1600))
     safe = re.sub(r"[^A-Za-z0-9_-]", "_", stamp_id)
     if perf:
-        dest = THUMB_DIR / f"{safe}_{size}_perf{frame}.png"
+        dest = THUMB_DIR / f"{safe}_{size}_perf{frame}.webp"
         if not dest.exists():
             im = _trim_white(Image.open(_row_image(stamp_id)))
             im.thumbnail((size, size))
@@ -315,14 +329,17 @@ def get_thumb(stamp_id: str, size: int = 420, perf: int = 0, frame: int = 1):
             border = max(6, round(dim * b_ratio)) if frame else 0
             hole_r = max(3, round(dim * r_ratio))
             hole_gap = max(8, round(dim * gap_ratio))
-            _perforate(im, border, hole_r, hole_gap).save(dest, "PNG")
-        return FileResponse(dest, media_type="image/png")
+            _perforate(im, border, hole_r, hole_gap).save(
+                dest, "WEBP", quality=82, method=4)
+        return FileResponse(dest, media_type="image/webp", headers=IMMUTABLE)
+    # non-perf stays JPEG — it is what the og:image meta tag points at, and social
+    # scrapers are far less reliable about WebP than browsers are.
     dest = THUMB_DIR / f"{safe}_{size}.jpg"
     if not dest.exists():
         im = _trim_white(Image.open(_row_image(stamp_id)))
         im.thumbnail((size, size))
         im.save(dest, "JPEG", quality=88)
-    return FileResponse(dest, media_type="image/jpeg")
+    return FileResponse(dest, media_type="image/jpeg", headers=IMMUTABLE)
 
 
 @app.get("/series", tags=["browse"])

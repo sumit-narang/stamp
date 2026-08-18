@@ -45,6 +45,13 @@ const CloseIcon = () => (
   </svg>
 )
 
+// The perforation is already baked into each image's alpha channel, so the CSS
+// mask below is *only* there to clip the hover caption to the stamp's silhouette.
+// It costs a second, no-cors download of the same file for every tile (CSS image
+// loads don't share the <img crossOrigin> cache entry) — so on touch devices,
+// where there is no hover and the caption never shows, skip it entirely.
+const HOVERS = window.matchMedia('(hover: hover)').matches
+
 export default function App() {
   const [buckets, setBuckets] = useState([])
   const [counts, setCounts] = useState({})
@@ -298,7 +305,9 @@ export default function App() {
               >
                 <span
                   className="thumb-cut"
-                  style={{ WebkitMaskImage: `url("${perfSrc}")`, maskImage: `url("${perfSrc}")` }}
+                  style={HOVERS
+                    ? { WebkitMaskImage: `url("${perfSrc}")`, maskImage: `url("${perfSrc}")` }
+                    : undefined}
                 >
                   <img
                     loading="lazy"
@@ -355,23 +364,35 @@ function DetailModal({ id, onClose }) {
 
   useEffect(() => {
     fetch(`${API}/stamps/${id}`).then((r) => r.json()).then(setStamp)
-    // The grid image shows instantly (cached); then sharpen. Mobile gets a
-    // lightweight 640px upgrade (~150KB, quick); desktop a device-sized hi-res.
+    // The visible image always starts as the already-cached grid tile, so the
+    // detail paints immediately; a sharper one is fetched in the background and
+    // swapped in only once it has fully decoded (never a blank or half-drawn
+    // frame). Mobile used to skip this entirely because the old PNGs were ~600KB;
+    // as WebP the same upgrade is ~50-100KB, so it is affordable over cellular.
     const mobile = window.matchMedia('(max-width: 720px)').matches
-    let hiRes
-    if (mobile) {
-      hiRes = `${API}/stamps/${id}/thumb?size=640&perf=1&frame=1`
-    } else {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2)
-      const target = Math.round(Math.max(window.innerWidth * 0.48, window.innerHeight * 0.82) * dpr)
-      hiRes = `${API}/stamps/${id}/thumb?size=${Math.min(1600, Math.max(700, target))}&perf=1`
+    const dpr = Math.min(window.devicePixelRatio || 1, 2)
+    const target = mobile
+      ? Math.round(window.innerWidth * 0.92 * dpr)
+      : Math.round(Math.max(window.innerWidth * 0.48, window.innerHeight * 0.82) * dpr)
+    const cap = mobile ? 1000 : 1600
+    const hiRes = `${API}/stamps/${id}/thumb?size=${Math.min(cap, Math.max(700, target))}&perf=1`
+
+    // respect Data Saver / genuinely slow links — the cached grid image is enough
+    const net = navigator.connection
+    const thrifty = net && (net.saveData || /(^|-)2g$/.test(net.effectiveType || ''))
+
+    let hi
+    if (!thrifty) {
+      hi = new Image()
+      hi.crossOrigin = 'anonymous'
+      hi.onload = () => setSrc(hiRes)
+      hi.src = hiRes
     }
-    const hi = new Image()
-    hi.crossOrigin = 'anonymous'          // match the detail <img> so the swap is cache-consistent
-    hi.onload = () => setSrc(hiRes)
-    hi.src = hiRes
     document.addEventListener('keydown', esc)
-    return () => document.removeEventListener('keydown', esc)
+    return () => {
+      document.removeEventListener('keydown', esc)
+      if (hi) hi.onload = null       // closed before it arrived — don't setSrc after unmount
+    }
   }, [id, esc])
 
   const dateLabel = (s) => {
@@ -383,10 +404,14 @@ function DetailModal({ id, onClose }) {
 
   return (
     <div className="fs">
+      {/* Backdrop uses the grid tile, never `src`: it is blurred to 70px so the
+          extra detail is invisible, and a CSS background is a no-cors request
+          that would not reuse the <img crossOrigin> cache entry — pointing it at
+          the hi-res downloaded the sharpened image a second time. */}
       <div
         className="fs-bg"
         aria-hidden="true"
-        style={{ backgroundImage: `url(${src})` }}
+        style={{ backgroundImage: `url(${gridSrc})` }}
       />
       <button className="fs-close" onClick={onClose} title="Back to gallery"><CloseIcon /></button>
       <div className="fs-img" style={{ viewTransitionName: 'stamp' }}>
