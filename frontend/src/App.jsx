@@ -355,17 +355,21 @@ function DetailModal({ id, onClose }) {
 
   useEffect(() => {
     fetch(`${API}/stamps/${id}`).then((r) => r.json()).then(setStamp)
-    // On mobile keep the (instant, already-cached) grid image — no heavy hi-res
-    // fetch. On desktop, sharpen to a device-sized hi-res once it loads.
+    // The grid image shows instantly (cached); then sharpen. Mobile gets a
+    // lightweight 640px upgrade (~150KB, quick); desktop a device-sized hi-res.
     const mobile = window.matchMedia('(max-width: 720px)').matches
-    if (!mobile) {
+    let hiRes
+    if (mobile) {
+      hiRes = `${API}/stamps/${id}/thumb?size=640&perf=1&frame=1`
+    } else {
       const dpr = Math.min(window.devicePixelRatio || 1, 2)
       const target = Math.round(Math.max(window.innerWidth * 0.48, window.innerHeight * 0.82) * dpr)
-      const hiRes = `${API}/stamps/${id}/thumb?size=${Math.min(1600, Math.max(700, target))}&perf=1`
-      const hi = new Image()
-      hi.onload = () => setSrc(hiRes)
-      hi.src = hiRes
+      hiRes = `${API}/stamps/${id}/thumb?size=${Math.min(1600, Math.max(700, target))}&perf=1`
     }
+    const hi = new Image()
+    hi.crossOrigin = 'anonymous'          // match the detail <img> so the swap is cache-consistent
+    hi.onload = () => setSrc(hiRes)
+    hi.src = hiRes
     document.addEventListener('keydown', esc)
     return () => document.removeEventListener('keydown', esc)
   }, [id, esc])
