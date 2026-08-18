@@ -224,7 +224,7 @@ export default function App() {
               key={s.id}
               style={{
                 '--i': i - 2,
-                transitionDelay: `${Math.abs(i - 2) * 0.07}s`,
+                transitionDelay: `${Math.abs(i - 2) * 0.06}s`,
                 zIndex: 5 - Math.abs(i - 2),
               }}
             >
